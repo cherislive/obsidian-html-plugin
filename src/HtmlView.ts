@@ -1,20 +1,22 @@
-import { WorkspaceLeaf, FileView, TFile, sanitizeHTMLToDom } from "obsidian";
-import { HtmlPluginSettings, HtmlPluginOpMode, isMacPlatform, isIosPlatform, DEFAULT_SETTINGS } from './HtmlPluginSettings';
+import { WorkspaceLeaf, FileView, TFile, sanitizeHTMLToDom, setIcon, Notice } from "obsidian";
+import { HtmlPluginSettings, isMacPlatform, isIosPlatform, DEFAULT_SETTINGS } from './HtmlPluginSettings';
 import { HtmlPluginOpMode } from './HtmlPluginOpMode';
 
 import { extract } from "single-filez-core/processors/compression/compression-extract.js";
 import * as zip from  '@zip.js/zip.js';
+import { convert } from "mhtml-to-html";
 import Mark from 'mark.js';
 import NP from 'number-precision'
 
 export const HTML_FILE_EXTENSIONS = ["html", "htm"];
 export const VIEW_TYPE_HTML = "html-view";
 export const ICON_HTML = "doc-html";
+export const MHTML_FILE_EXTENSIONS = ["mht", "mhtml"];
 
 
 export class HtmlView extends FileView {
 	settings: HtmlPluginSettings;
-	mainView: HTMLElement;
+	mainView!: HTMLElement;
 
 	constructor(leaf: WorkspaceLeaf, private settings: HtmlPluginSettings) {
 		super(leaf);
@@ -37,16 +39,22 @@ export class HtmlView extends FileView {
 			
 			let htmlStr = null;
 			
-			try {
-				// the HTML file made by SingleFileZ
-				globalThis.zip = zip;
-				const { docContent } = await extract(new Blob([new Uint8Array(contents)]), { noBlobURL: true });
-				
-				htmlStr = docContent;
-			} catch {
-				// the HTML file not made by SingleFileZ			
-				const decoder = new TextDecoder();
-				htmlStr = decoder.decode(contents); // decode with UTF8
+			if( this.settings.mhtmlSupport && (MHTML_FILE_EXTENSIONS.indexOf(file.extension) >= 0) ) {
+				// Support MHTML, Feature request #19
+				const { data, title, favicons } = await convert(new Uint8Array(contents));
+				htmlStr = data;
+			} else {
+				try {
+					// the HTML file made by SingleFileZ
+					globalThis.zip = zip;
+					const { docContent } = await extract(new Blob([new Uint8Array(contents)]), { noBlobURL: true });
+					
+					htmlStr = docContent;
+				} catch {
+					// the HTML file not made by SingleFileZ			
+					const decoder = new TextDecoder();
+					htmlStr = decoder.decode(contents); // decode with UTF8
+				}
 			}
 			
 			// https://github.com/nefe/number-precision
@@ -186,7 +194,7 @@ export class HtmlView extends FileView {
 	}
 }
 
-export async function showError(e: Error): Promise<void> {
+export async function showError(e: Error | any): Promise<void> {
 	const notice = new Notice("", 8000);
 	// @ts-ignore
 	notice.noticeEl.createEl('strong', { text: 'HTML Reader error' });
@@ -369,6 +377,16 @@ async function modifyAnchorTarget( doc: HTMLDocument ): Promise<void> {
 				if( !aElm.rel.contains('noreferrer') )
 					aElm.rel += ' noreferrer';
 			}
+
+			// Open a relative file in new Tab, Feature Request #27
+			// TODO: specific file formats?
+			// TODO: check if the href is a relative resource
+			aElm.addEventListener( 'click', (evt: KeyboardEvent | MouseEvent) => {
+				if( evt.ctrlKey ) {
+					evt.preventDefault();
+					app.workspace.openLinkText( aElm.getAttribute('href'), '', true );
+				}
+			});
 		}
 	}
 }
@@ -746,11 +764,13 @@ async function buildUserInteractiveFacilities( mainView: HTMLElement ): Promise<
 		checkAndUpdateMatches();
 		findNext();
 	} );
+	setIcon( next, 'lucide-arrow-down' );
 	const prev = searchBar.querySelector( '#ohpSearchPrev' );
 	prev.addEventListener( 'click', (evt) => {
 		checkAndUpdateMatches();
 		findPrev();
 	} );
+	setIcon( prev, 'lucide-arrow-up' );
 	const sall = searchBar.querySelector( '#ohpSearchSelectAll' );
 	sall.addEventListener( 'click', (evt) => {
 		checkAndUpdateMatches();
@@ -760,6 +780,7 @@ async function buildUserInteractiveFacilities( mainView: HTMLElement ): Promise<
 			setAllMarks( true );
 		}
 	} );
+	setIcon( sall, 'lucide-text-select' );
 	const exit = searchBar.querySelector( '#ohpSearchExit' );
 	exit.addEventListener( 'click', (evt) => {
 		// clear highlight marks, but keep curText and tmp class
@@ -771,6 +792,7 @@ async function buildUserInteractiveFacilities( mainView: HTMLElement ): Promise<
 		isSearchBarVisible = false;
 		iframe.contentWindow.focus();
 	} );
+	setIcon( exit, 'lucide-x' );
 	searchBar.addEventListener( 'keydown', (evt) => {
 		if( evt.shiftKey && evt.keyCode === 114 ) {
 			// search previous Shift+F3
@@ -804,6 +826,11 @@ async function buildUserInteractiveFacilities( mainView: HTMLElement ): Promise<
 			if( isSearchBarVisible )
 				next.click();
 		}	
+		else if( evt.key === 'F5' ) {
+			// Refresh whole HTML page, Feature request #28
+			//app.workspace.activeLeaf.rebuildView(); // OBSOLETE
+			this.app.workspace.getActiveViewOfType(HtmlView)?.leaf.rebuildView();
+		}
 		else if( evt.key === 'Escape' ) {
 			// close search bar
 			if( isSearchBarVisible )
@@ -968,9 +995,9 @@ const MAINVIEW_HTML: string = `
   <div class="document-search">
     <input class="document-search-input" type="search" placeholder="${i18next.t("editor.search.placeholder-find")}" id="ohpSearchInput">
     <div class="document-search-buttons">
-      <button class="document-search-button" aria-label="${isAppleSys ? "⇧F3" : "Shift + F3"}" aria-label-position="top" id="ohpSearchPrev">${i18next.t("editor.search.label-previous")}</button>
-      <button class="document-search-button" aria-label="F3" aria-label-position="top" id="ohpSearchNext">${i18next.t("editor.search.label-next")}</button>
-      <button class="document-search-button" aria-label="${isAppleSys ? "⌥Enter" : "Alt + Enter"}" aria-label-position="top" id="ohpSearchSelectAll">${i18next.t("editor.search.label-all")}</button>
+      <button class="document-search-button" aria-label="${i18next.t("editor.search.label-previous")} ${isAppleSys ? "⇧F3" : "Shift + F3"}" aria-label-position="top" id="ohpSearchPrev"></button>
+      <button class="document-search-button" aria-label="${i18next.t("editor.search.label-next")} F3" aria-label-position="top" id="ohpSearchNext"></button>
+      <button class="document-search-button" aria-label="${i18next.t("editor.search.label-find-all")} ${isAppleSys ? "⌥Enter" : "Alt + Enter"}" aria-label-position="top" id="ohpSearchSelectAll"></button>
 	  <span class="document-search-close-button" aria-label="${i18next.t("editor.search.label-exit-search")}" aria-label-position="top" id="ohpSearchExit"></span>
     </div>
   </div>

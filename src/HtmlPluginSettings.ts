@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, TFolder, Vault } from "obsidian";
+import { App, PluginSettingTab, Setting, TFolder, Vault, Modifier } from "obsidian";
 import HtmlPlugin from "./HtmlPlugin";
 import { HtmlPluginOpMode, OP_MODE_INFO_DATA, OP_MODE_INFO_HTML } from "./HtmlPluginOpMode";
 
@@ -9,6 +9,7 @@ export interface HtmlPluginSettings {
 	zoomByWheelAndGesture: boolean;
 	zoomValue: number;
 	extraFileExt: string;
+	mhtmlSupport: boolean; // Support MHTML, Feature request #19
 }
 
 export const DEFAULT_SETTINGS: HtmlPluginSettings = {
@@ -18,12 +19,13 @@ export const DEFAULT_SETTINGS: HtmlPluginSettings = {
 	zoomByWheelAndGesture: true,
 	zoomValue: 1.0,
 	extraFileExt: '',
+	mhtmlSupport: false, // Support MHTML, Feature request #19
 }
 
 export class HtmlSettingTab extends PluginSettingTab {
 	app: App;
 	plugin: HtmlPlugin;
-	opModeInfoFrag: DocumentFragment;
+	opModeInfoFrag!: DocumentFragment;
 
 	constructor(app: App, plugin: HtmlPlugin) {
 		super(app, plugin);
@@ -51,7 +53,7 @@ export class HtmlSettingTab extends PluginSettingTab {
 				dropdown
 					.setValue(this.plugin.settings.opMode)
 					.onChange( async (opMode) => {
-						this.plugin.settings.opMode = opMode;
+						this.plugin.settings.opMode = opMode as HtmlPluginOpMode;
 						await this.plugin.saveSettings();
 					});
 			});
@@ -89,7 +91,7 @@ export class HtmlSettingTab extends PluginSettingTab {
 		extraFileExtSetting
 			.setName("Extra File Extensions")
 			.setDesc("Open HTML format files with user defined file extensions (list of comma separated strings). Change this setting may cause other plugins un-workable, so you shall know very clearly what you are doing. Remember to relaunch the Obsidian app after change this setting!")
-			.addText((val) =>
+			.addText( (val) =>
 				val
 					.setValue(this.plugin.settings.extraFileExt)
 					.setPlaceholder("e.g. xhtml, htm123")
@@ -97,8 +99,22 @@ export class HtmlSettingTab extends PluginSettingTab {
 						this.plugin.settings.extraFileExt = value;
 						await this.plugin.saveSettings();
 					})
-      );
+			);
 		
+		// ----- General Settings: MHTML File Format Support -----
+		const mhtmlSupportedSetting = new Setting(containerEl); // Support MHTML, Feature request #19
+		mhtmlSupportedSetting
+			.setName("MHTML File Format Support")
+			.setDesc("Support with MHTML file format (.mht and .mhtml). Enable this option would convert the MHTML file format to HTML file format on the fly each time while opening the MHTML file. Therefore it would waste time on converting MHTML content! This option would override the 'Extra File Extensions' setting, and it also might cause other plugins un-workable. Remember to relaunch the Obsidian app after change this setting.")
+			.addToggle( (toggle) => {
+				toggle
+					.setValue( this.plugin.settings.mhtmlSupport )
+					.onChange( async (enabled: boolean) => {
+						this.plugin.settings.mhtmlSupport = enabled;
+						await this.plugin.saveSettings();
+					});
+			});
+
 		// ----- HotKeys and Touch Gestures Settings -----
 		containerEl.createEl('h2', { text: 'HotKeys and Touch Gestures Settings' });
 		containerEl.createEl('small', { text: `Almost all keyboard hotkeys are taken from Obsidian's global hotkey settings, so you shall modify them via ⚙"Settings" ⇨ "Hotkeys" options page.` });

@@ -104,6 +104,13 @@ Set HTML &lt;body&gt; element background color forcely.
 #### Extra File Extensions
 Open HTML format files with user defined file extensions (list of comma separated strings). Change this setting may cause other plugins un-workable, so you shall know very clearly what you are doing. Remember to relaunch the Obsidian app after change this setting!
 
+#### MHTML File Format Support
+Support with MHTML file format (.mht and .mhtml). Enable this option would convert the MHTML file format to HTML file format on the fly while opening the MHTML file each time. Therefore it would waste time on converting MHTML content! This option would override the 'Extra File Extensions' setting, and it also might cause other plugins un-workable. Remember to relaunch the Obsidian app after change this setting. <br>
+**NOTE1:** It is preferred to convert MHTML files to HTML files outside this plugin, then save back the converted HTML files to vault(s). It would save much computing time of the converting procedure when you have to open these MHTML files in a high frequency. <br>
+**NOTE2:** These two converter tools may help you.
+  1. **mhtml-to-html**: https://github.com/gildas-lormeau/mhtml-to-html, this project contains command line applications and library, and you can download it from [Releases](https://github.com/gildas-lormeau/mhtml-to-html/releases). By the way, this plugin also use this library to convert MHTML files.
+  2. **Mhtml Wizard**: https://erwannlc.github.io/mhtml-wizard/, this web app can convert MHTML file(s) online.
+
 ### Hotkeys and touch gestures settings
 Almost all keyboard hotkeys are taken from Obsidian's global hotkey settings, so you shall modify them via ⚙"Settings" ⇨ "Hotkeys" options page. <br>
 That means this plugin does not design any new configuration interface for keyboard hotkeys. And it just show the first two settings of corresponding hotkeys with readonly mode.
@@ -121,7 +128,7 @@ Zoom the document using Ctrl + Wheel (zoom in: ↑, zoom out: ↓), or using the
 
 
 ## More options
-After opening HTML files, the three dots ⋮ "more options" menu icon on right-upper corner of tab would be added some menu items.
+After a HTML file opened, the three dots ⋮ "more options" menu icon on right-upper corner of tab would be added some menu items.
 
 ![MoreOptions1.jpg](./assets/images/screenshots/MoreOptions1.jpg "More Options part1")
  
@@ -146,12 +153,14 @@ Reset current file zoom.
 - Cannot see local image files like `<img src="./image1.jpg" />` or `<img src="file:///C:/image1.jpg" />`
   - This is Obsidian's constraint, it disallow to directly access local files through HTML code.
   - One of the possible remedy ways is re-save the HTML file as a complete HTML file by dedicated browser extensions such as "[SingleFile](https://github.com/gildas-lormeau/SingleFile)", it can save a complete page (with CSS, images, fonts, frames, etc.) as a single HTML file. After got the complete HTML file, put it to obsidian-html-plugin installed vault folder then open it, you would see all images.
-  - Another remedy way is add `app://local/` or `app://local//` prefix string to `src` attribute by hands(refer to "[Allow embed of Local images using `![](file:///...)`](https://forum.obsidian.md/t/allow-embed-of-local-images-using-file/1990/4)").
+  - <s> Another remedy way is add `app://local/` or `app://local//` prefix string to `src` attribute by hands(refer to "[Allow embed of Local images using `![](file:///...)`](https://forum.obsidian.md/t/allow-embed-of-local-images-using-file/1990/4)"). </s> (USELESS)
+  - From Obsidian v1.8+, it support some HTML tags with `src` relative paths for Markdown(.md) format documents. But it still disallowed to load any local resources for HTML(.html) documents. 
 
 - After some .html files were opened, they look like blank pages and cannot see original contents.
-  - In fact, currently (after 1.0.4), this plugin can handle only some kinds of HTML files:
+  - In fact, currently (after 1.0.13), this plugin can handle only some kinds of HTML files:
     1. Standard [HTML5](https://html.spec.whatwg.org/) files
     2. Compressed HTML-like files made by [SingleFileZ](https://github.com/gildas-lormeau/SingleFileZ)
+	3. MHTML format files (after enabled 'MHTML File Format Supported' setting, converting by [mhtml-to-html](https://github.com/gildas-lormeau/mhtml-to-html))
   - Therefore, when open unsupported file format, this plugin would notice related messages or show an almost blank page.
   - "open document with `.html`  and `.htm` file extensions" is the description written for end-users without technical background. It doesn't mean this plugin can open all kinds of files with .html or .htm file extensions, especially when the file actually is other document type but renamed to .html or .htm file extension.
   - If you want to open an ePub file, you shall install "ePub Reader" plugin to open it, instead rename it to xxx.html then ask why this plugin cannot open it.
@@ -181,3 +190,6 @@ Reset current file zoom.
   
 - The presentation style of search results is different with Markdown documents
   - There are lots tags/elements inside HTML files, and some search results would across tags and overlap with each others. Therefore, this plugin use the block mark style (highlight with background color) instead of outline style.
+
+- Cannot open some files in vault by `<a>` tags
+  - It seems the Obsidian app block some kinds of hyperlinks, e.g.: `<a href="file:///...">`
